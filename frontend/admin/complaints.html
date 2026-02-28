@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Complaints — SmartGov Admin</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <div id="navbar-container"></div>
+        <main class="main-content">
+            <div class="container">
+                <div class="page-header">
+                    <h1>📋 All Complaints</h1>
+                    <p>Manage and oversee all system complaints</p>
+                </div>
+                <div class="filter-bar">
+                    <input type="search" class="form-control" id="search" placeholder="🔍 Search..."
+                        oninput="loadComplaints()">
+                    <select class="form-control" id="filter-status" onchange="loadComplaints()">
+                        <option value="">All Statuses</option>
+                        <option value="Submitted">Submitted</option>
+                        <option value="Acknowledged">Acknowledged</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Closed">Closed</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                    <select class="form-control" id="filter-dept" onchange="loadComplaints()">
+                        <option value="">All Departments</option>
+                        <option value="Water Supply">Water Supply</option>
+                        <option value="Electricity">Electricity</option>
+                        <option value="Sanitation">Sanitation</option>
+                        <option value="Infrastructure">Infrastructure</option>
+                    </select>
+                    <select class="form-control" id="filter-priority" onchange="loadComplaints()">
+                        <option value="">All Priorities</option>
+                        <option value="Critical">Critical</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+                <div class="complaint-list" id="complaint-list">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="detail-modal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h2 id="modal-title"></h2><button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        const user = Auth.requireAuth(['admin']);
+        let staffList = [];
+        if (user) {
+            document.getElementById('navbar-container').innerHTML = buildNavbar(user);
+            initNotifications();
+            loadStaff();
+            loadComplaints();
+        }
+
+        async function loadStaff() {
+            try { const d = await api.get('/admin/staff'); staffList = d.staff; } catch (e) { }
+        }
+
+        async function loadComplaints() {
+            const status = document.getElementById('filter-status').value;
+            const dept = document.getElementById('filter-dept').value;
+            const priority = document.getElementById('filter-priority').value;
+            const search = document.getElementById('search').value;
+            let url = '/complaints?limit=100';
+            if (status) url += `&status=${status}`;
+            if (dept) url += `&department=${encodeURIComponent(dept)}`;
+            if (priority) url += `&priority=${priority}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+
+            try {
+                const data = await api.get(url);
+                const list = document.getElementById('complaint-list');
+                if (!data.complaints.length) {
+                    list.innerHTML = '<div class="empty-state"><div class="icon">📋</div><h3>No complaints found</h3></div>';
+                    return;
+                }
+                list.innerHTML = data.complaints.map(c => `
+          <div class="complaint-card" onclick="viewComplaint(${c.id})">
+            <div class="complaint-info">
+              <h4>${getCategoryIcon(c.category)} ${escapeHtml(c.title)}</h4>
+              <div class="complaint-meta">
+                <span>🔖 ${c.complaint_number}</span><span>👤 ${c.citizen_name || '—'}</span>
+                <span>🏢 ${c.department}</span><span>🕐 ${timeAgo(c.created_at)}</span>
+                ${c.assigned_staff_name ? `<span>⚙️ ${c.assigned_staff_name}</span>` : ''}
+              </div>
+            </div>
+            <div class="complaint-badges">${getStatusBadge(c.status)}${getPriorityBadge(c.priority)}</div>
+          </div>
+        `).join('');
+            } catch (err) { Toast.error('Failed to load complaints'); }
+        }
+
+        async function viewComplaint(id) {
+            try {
+                const c = await api.get(`/complaints/${id}`);
+                document.getElementById('modal-title').textContent = c.complaint_number;
+                const statusOptions = ['Submitted', 'Acknowledged', 'In Progress', 'Resolved', 'Rejected'];
+                const deptStaff = staffList.filter(s => s.department === c.department);
+
+                document.getElementById('modal-body').innerHTML = `
+          <div style="display:grid; gap:16px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Status</span><div style="margin-top:4px;">${getStatusBadge(c.status)}</div></div>
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Priority</span><div style="margin-top:4px;">${getPriorityBadge(c.priority)}</div></div>
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Citizen</span><div style="margin-top:4px;">👤 ${c.citizen_name} (${c.citizen_email})</div></div>
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Department</span><div style="margin-top:4px;">🏢 ${c.department}</div></div>
+            </div>
+            <div>
+              <h3 style="font-size:1.1rem; margin-bottom:8px;">${escapeHtml(c.title)}</h3>
+              <p style="color:var(--text-secondary); font-size:0.9rem;">${escapeHtml(c.description)}</p>
+              <p style="color:var(--text-muted); font-size:0.85rem; margin-top:8px;">📍 ${c.location || '—'} · 📅 ${formatDate(c.created_at)}</p>
+            </div>
+            ${c.resolution_notes ? `<div style="padding:12px; background:var(--success-bg); border-radius:var(--radius-sm); color:var(--success);">📝 ${escapeHtml(c.resolution_notes)}</div>` : ''}
+            ${c.feedback ? `<div style="padding:12px; background:var(--bg-input); border-radius:var(--radius-sm);">⭐ Rating: ${renderStars(c.feedback.rating)} ${c.feedback.comment ? ' — "' + escapeHtml(c.feedback.comment) + '"' : ''}</div>` : ''}
+
+            <div style="padding:20px; background:var(--bg-input); border-radius:var(--radius-md); border:1px solid var(--border);">
+              <h4 style="margin-bottom:12px;">Admin Actions</h4>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Update Status</label>
+                  <select class="form-control" id="new-status">
+                    ${statusOptions.map(s => `<option value="${s}" ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Assign to Staff</label>
+                  <select class="form-control" id="assign-staff">
+                    <option value="">Unassigned</option>
+                    ${deptStaff.map(s => `<option value="${s.id}" ${c.assigned_to === s.id ? 'selected' : ''}>${s.full_name}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <textarea class="form-control" id="status-notes" placeholder="Add notes..." rows="2"></textarea>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-primary" onclick="updateStatus(${c.id})">Update</button>
+                <button class="btn btn-danger" onclick="deleteComplaint(${c.id})">🗑️ Delete</button>
+              </div>
+            </div>
+
+            <div>
+              <h4 style="margin-bottom:12px;">📜 Timeline</h4>
+              <div class="timeline">${c.timeline.map(t => `
+                <div class="timeline-item"><div class="timeline-content">
+                  <div class="timeline-header"><span class="timeline-action">${t.action}: ${t.new_status || ''}</span><span class="timeline-time">${formatDateTime(t.created_at)}</span></div>
+                  ${t.notes ? `<div class="timeline-notes">${escapeHtml(t.notes)}</div>` : ''}
+                  <div class="timeline-user">by ${t.updated_by_name || 'System'}</div>
+                </div></div>
+              `).join('')}</div>
+            </div>
+          </div>`;
+                document.getElementById('detail-modal').classList.add('active');
+            } catch (err) { Toast.error('Failed to load complaint'); }
+        }
+
+        function closeModal() { document.getElementById('detail-modal').classList.remove('active'); }
+
+        async function updateStatus(id) {
+            try {
+                const status = document.getElementById('new-status').value;
+                const notes = document.getElementById('status-notes').value;
+                const assignedTo = document.getElementById('assign-staff').value;
+                await api.put(`/complaints/${id}/status`, { status, notes: notes || null, assigned_to: assignedTo ? parseInt(assignedTo) : null });
+                Toast.success(`Complaint updated`);
+                closeModal();
+                loadComplaints();
+            } catch (err) { Toast.error(err.message); }
+        }
+
+        async function deleteComplaint(id) {
+            if (!confirm('Delete this complaint permanently?')) return;
+            try { await api.delete(`/complaints/${id}`); Toast.success('Deleted'); closeModal(); loadComplaints(); }
+            catch (err) { Toast.error(err.message); }
+        }
+
+        document.getElementById('detail-modal').addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) closeModal(); });
+    </script>
+</body>
+
+</html>

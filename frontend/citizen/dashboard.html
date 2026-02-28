@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — SmartGov Citizen</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <div class="page-wrapper" id="app">
+        <div id="navbar-container"></div>
+        <main class="main-content">
+            <div class="container">
+                <div class="page-header">
+                    <h1 id="greeting">Welcome back!</h1>
+                    <p>Here's an overview of your complaint activity</p>
+                </div>
+                <div class="grid-4 stagger" id="kpi-cards"></div>
+                <div style="margin-top:32px;">
+                    <div class="flex-between" style="margin-bottom:16px;">
+                        <h2 style="font-size:1.2rem; font-weight:600;">Recent Complaints</h2>
+                        <a href="/citizen/my-complaints.html" class="btn btn-ghost btn-sm">View All →</a>
+                    </div>
+                    <div class="complaint-list" id="recent-list">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <footer class="footer">
+            <div class="container">
+                <p>🏛️ SmartGov — Citizen Portal</p>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        const user = Auth.requireAuth(['citizen']);
+        if (user) {
+            document.getElementById('navbar-container').innerHTML = buildNavbar(user);
+            document.getElementById('greeting').textContent = `Welcome back, ${user.full_name}! 👋`;
+            initNotifications();
+            loadDashboard();
+        }
+
+        async function loadDashboard() {
+            try {
+                const data = await api.get('/complaints?limit=50');
+                const complaints = data.complaints;
+                const total = complaints.length;
+                const pending = complaints.filter(c => ['Submitted', 'Acknowledged'].includes(c.status)).length;
+                const inProgress = complaints.filter(c => c.status === 'In Progress').length;
+                const resolved = complaints.filter(c => ['Resolved', 'Closed'].includes(c.status)).length;
+
+                document.getElementById('kpi-cards').innerHTML = `
+          <div class="kpi-card accent"><div class="kpi-icon">📋</div><div class="kpi-value">${total}</div><div class="kpi-label">Total Complaints</div></div>
+          <div class="kpi-card warning"><div class="kpi-icon">⏳</div><div class="kpi-value">${pending}</div><div class="kpi-label">Pending</div></div>
+          <div class="kpi-card info"><div class="kpi-icon">🔧</div><div class="kpi-value">${inProgress}</div><div class="kpi-label">In Progress</div></div>
+          <div class="kpi-card success"><div class="kpi-icon">✅</div><div class="kpi-value">${resolved}</div><div class="kpi-label">Resolved</div></div>
+        `;
+
+                const recent = complaints.slice(0, 5);
+                if (!recent.length) {
+                    document.getElementById('recent-list').innerHTML = `<div class="empty-state"><div class="icon">📝</div><h3>No complaints yet</h3><p>File your first complaint to get started!</p><a href="/citizen/submit.html" class="btn btn-primary" style="margin-top:16px;">➕ Submit Complaint</a></div>`;
+                    return;
+                }
+                document.getElementById('recent-list').innerHTML = recent.map(c => `
+          <div class="complaint-card" onclick="window.location.href='/citizen/my-complaints.html?id=${c.id}'">
+            <div class="complaint-info">
+              <h4>${getCategoryIcon(c.category)} ${escapeHtml(c.title)}</h4>
+              <div class="complaint-meta">
+                <span>🔖 ${c.complaint_number}</span>
+                <span>🏢 ${c.department}</span>
+                <span>📍 ${c.location || '—'}</span>
+                <span>🕐 ${timeAgo(c.created_at)}</span>
+              </div>
+            </div>
+            <div class="complaint-badges">
+              ${getStatusBadge(c.status)}
+              ${getPriorityBadge(c.priority)}
+            </div>
+          </div>
+        `).join('');
+            } catch (err) {
+                Toast.error('Failed to load dashboard');
+            }
+        }
+    </script>
+</body>
+
+</html>

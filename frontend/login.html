@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login to SmartGov — Role-based sign-in for Citizens, Staff, and Admins">
+    <title>Login — SmartGov</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <div class="auth-page">
+        <div class="auth-card fade-in">
+            <div class="logo">
+                <div class="logo-icon">🏛️</div>
+                <h1>SmartGov</h1>
+                <p>Sign in to your account</p>
+            </div>
+
+            <div class="role-selector" id="role-selector">
+                <button class="active" data-role="citizen" onclick="selectRole('citizen')">👤 Citizen</button>
+                <button data-role="staff" onclick="selectRole('staff')">⚙️ Staff</button>
+                <button data-role="admin" onclick="selectRole('admin')">🏛️ Admin</button>
+            </div>
+
+            <form id="login-form" onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email Address</label>
+                    <input type="email" class="form-control" id="email" placeholder="Enter your email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="password">Password</label>
+                    <input type="password" class="form-control" id="password" placeholder="Enter your password"
+                        required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-btn">🔑 Sign In</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="/register.html">Register here</a></p>
+            </div>
+
+            <div class="demo-credentials" id="demo-creds">
+                <h4>Demo Credentials</h4>
+                <div id="cred-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        let selectedRole = 'citizen';
+        const credentials = {
+            citizen: [{ label: 'Citizen', email: 'citizen@demo.in', pass: 'Citizen@123' }],
+            staff: [
+                { label: 'Electricity', email: 'electric@smartgov.in', pass: 'Staff@123' },
+                { label: 'Water', email: 'water@smartgov.in', pass: 'Staff@123' },
+                { label: 'Sanitation', email: 'sanitation@smartgov.in', pass: 'Staff@123' },
+                { label: 'Infrastructure', email: 'infra@smartgov.in', pass: 'Staff@123' },
+            ],
+            admin: [{ label: 'Admin', email: 'admin@smartgov.in', pass: 'Admin@123' }]
+        };
+
+        function selectRole(role) {
+            selectedRole = role;
+            document.querySelectorAll('.role-selector button').forEach(b => b.classList.toggle('active', b.dataset.role === role));
+            renderCredentials();
+        }
+
+        function renderCredentials() {
+            const list = document.getElementById('cred-list');
+            list.innerHTML = credentials[selectedRole].map(c => `
+        <div class="cred" style="cursor:pointer;" onclick="fillCredentials('${c.email}', '${c.pass}')">
+          <span>${c.label}</span>
+          <span>${c.email}</span>
+        </div>
+      `).join('');
+        }
+
+        function fillCredentials(email, pass) {
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = pass;
+            Toast.info('Credentials filled! Click Sign In to continue.');
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true;
+            btn.textContent = 'Signing in...';
+            try {
+                const data = await api.post('/auth/login', {
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                });
+                Auth.setSession(data.token, data.user);
+                Toast.success('Login successful! Redirecting...');
+                const dashMap = { citizen: '/citizen/dashboard.html', staff: '/staff/dashboard.html', admin: '/admin/dashboard.html' };
+                setTimeout(() => window.location.href = dashMap[data.user.role], 800);
+            } catch (err) {
+                Toast.error(err.message);
+                btn.disabled = false;
+                btn.textContent = '🔑 Sign In';
+            }
+        }
+
+        renderCredentials();
+        if (Auth.isLoggedIn()) {
+            const u = Auth.getUser();
+            const dashMap = { citizen: '/citizen/dashboard.html', staff: '/staff/dashboard.html', admin: '/admin/dashboard.html' };
+            window.location.href = dashMap[u.role];
+        }
+    </script>
+</body>
+
+</html>

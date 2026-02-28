@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Complaints — SmartGov</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <div id="navbar-container"></div>
+        <main class="main-content">
+            <div class="container">
+                <div class="page-header flex-between">
+                    <div>
+                        <h1>📋 My Complaints</h1>
+                        <p>Track and manage all your filed complaints</p>
+                    </div>
+                    <a href="/citizen/submit.html" class="btn btn-primary">➕ New Complaint</a>
+                </div>
+                <div class="filter-bar">
+                    <input type="search" class="form-control" id="search" placeholder="🔍 Search complaints..."
+                        oninput="loadComplaints()">
+                    <select class="form-control" id="filter-status" onchange="loadComplaints()">
+                        <option value="">All Statuses</option>
+                        <option value="Submitted">Submitted</option>
+                        <option value="Acknowledged">Acknowledged</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Resolved">Resolved</option>
+                        <option value="Closed">Closed</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                    <select class="form-control" id="filter-category" onchange="loadComplaints()">
+                        <option value="">All Categories</option>
+                        <option value="Water">Water</option>
+                        <option value="Electricity">Electricity</option>
+                        <option value="Sanitation">Sanitation</option>
+                        <option value="Infrastructure">Infrastructure</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="complaint-list" id="complaint-list">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Complaint Detail Modal -->
+    <div class="modal-overlay" id="detail-modal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h2 id="modal-title">Complaint Details</h2>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        const user = Auth.requireAuth(['citizen']);
+        if (user) {
+            document.getElementById('navbar-container').innerHTML = buildNavbar(user);
+            initNotifications();
+            loadComplaints();
+            // Check if opened from dashboard with specific complaint
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('id')) setTimeout(() => viewComplaint(params.get('id')), 500);
+        }
+
+        async function loadComplaints() {
+            const status = document.getElementById('filter-status').value;
+            const category = document.getElementById('filter-category').value;
+            const search = document.getElementById('search').value;
+            let url = '/complaints?limit=100';
+            if (status) url += `&status=${status}`;
+            if (category) url += `&category=${category}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+
+            try {
+                const data = await api.get(url);
+                const list = document.getElementById('complaint-list');
+                if (!data.complaints.length) {
+                    list.innerHTML = '<div class="empty-state"><div class="icon">📋</div><h3>No complaints found</h3><p>Try adjusting your filters or file a new complaint.</p></div>';
+                    return;
+                }
+                list.innerHTML = data.complaints.map(c => `
+          <div class="complaint-card" onclick="viewComplaint(${c.id})">
+            <div class="complaint-info">
+              <h4>${getCategoryIcon(c.category)} ${escapeHtml(c.title)}</h4>
+              <div class="complaint-meta">
+                <span>🔖 ${c.complaint_number}</span>
+                <span>🏢 ${c.department}</span>
+                <span>📍 ${c.location || '—'}</span>
+                <span>🕐 ${formatDate(c.created_at)}</span>
+              </div>
+            </div>
+            <div class="complaint-badges">
+              ${getStatusBadge(c.status)}
+              ${getPriorityBadge(c.priority)}
+            </div>
+          </div>
+        `).join('');
+            } catch (err) { Toast.error('Failed to load complaints'); }
+        }
+
+        async function viewComplaint(id) {
+            try {
+                const c = await api.get(`/complaints/${id}`);
+                document.getElementById('modal-title').textContent = c.complaint_number;
+                let feedbackHtml = '';
+                if (['Resolved', 'Closed'].includes(c.status) && !c.feedback) {
+                    feedbackHtml = `
+            <div style="margin-top:24px; padding:20px; background:var(--bg-input); border-radius:var(--radius-md); border:1px solid var(--border);">
+              <h3 style="font-size:1rem; margin-bottom:12px;">⭐ Rate this resolution</h3>
+              <div class="star-rating" id="star-rating"></div>
+              <textarea class="form-control" id="feedback-comment" placeholder="Share your experience..." style="margin-top:12px;"></textarea>
+              <button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="submitFeedback(${c.id})">Submit Feedback</button>
+            </div>`;
+                } else if (c.feedback) {
+                    feedbackHtml = `<div style="margin-top:24px; padding:16px; background:var(--bg-input); border-radius:var(--radius-md);">
+            <h4 style="margin-bottom:8px;">⭐ Your Rating</h4>
+            <div>${renderStars(c.feedback.rating)}</div>
+            ${c.feedback.comment ? `<p style="color:var(--text-secondary); margin-top:8px; font-size:0.9rem;">"${escapeHtml(c.feedback.comment)}"</p>` : ''}
+          </div>`;
+                }
+
+                let deleteBtn = '';
+                if (['Submitted', 'Rejected'].includes(c.status)) {
+                    deleteBtn = `<button class="btn btn-danger btn-sm" onclick="deleteComplaint(${c.id})" style="margin-top:16px;">🗑️ Delete Complaint</button>`;
+                }
+                let closeBtn = '';
+                if (c.status === 'Resolved') {
+                    closeBtn = `<button class="btn btn-success btn-sm" onclick="closeComplaint(${c.id})" style="margin-top:16px; margin-left:8px;">✅ Confirm & Close</button>`;
+                }
+
+                document.getElementById('modal-body').innerHTML = `
+          <div style="display:grid; gap:16px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Status</span><div style="margin-top:4px;">${getStatusBadge(c.status)}</div></div>
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Priority</span><div style="margin-top:4px;">${getPriorityBadge(c.priority)}</div></div>
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Category</span><div style="margin-top:4px;">${getCategoryIcon(c.category)} ${c.category}</div></div>
+              <div><span style="color:var(--text-muted); font-size:0.8rem;">Department</span><div style="margin-top:4px;">🏢 ${c.department}</div></div>
+            </div>
+            <div>
+              <h3 style="font-size:1.1rem; font-weight:600; margin-bottom:8px;">${escapeHtml(c.title)}</h3>
+              <p style="color:var(--text-secondary); font-size:0.9rem;">${escapeHtml(c.description)}</p>
+            </div>
+            <div style="display:flex; gap:16px; font-size:0.85rem; color:var(--text-muted);">
+              <span>📍 ${c.location || '—'}</span>
+              <span>📅 ${formatDate(c.created_at)}</span>
+              ${c.assigned_staff_name ? `<span>👤 ${c.assigned_staff_name}</span>` : ''}
+            </div>
+            ${c.resolution_notes ? `<div style="padding:12px; background:var(--success-bg); border-radius:var(--radius-sm); font-size:0.9rem; color:var(--success);">📝 Resolution: ${escapeHtml(c.resolution_notes)}</div>` : ''}
+            <div>
+              <h4 style="margin-bottom:12px; font-size:0.95rem;">📜 Status Timeline</h4>
+              <div class="timeline">${c.timeline.map(t => `
+                <div class="timeline-item">
+                  <div class="timeline-content">
+                    <div class="timeline-header">
+                      <span class="timeline-action">${t.action}</span>
+                      <span class="timeline-time">${formatDateTime(t.created_at)}</span>
+                    </div>
+                    ${t.notes ? `<div class="timeline-notes">${escapeHtml(t.notes)}</div>` : ''}
+                    <div class="timeline-user">by ${t.updated_by_name || 'System'}</div>
+                  </div>
+                </div>
+              `).join('')}</div>
+            </div>
+            ${feedbackHtml}
+            <div>${deleteBtn}${closeBtn}</div>
+          </div>
+        `;
+
+                document.getElementById('detail-modal').classList.add('active');
+                if (['Resolved', 'Closed'].includes(c.status) && !c.feedback) {
+                    window._starRating = createStarRating('star-rating', 0);
+                }
+            } catch (err) { Toast.error('Failed to load complaint details'); }
+        }
+
+        function closeModal() { document.getElementById('detail-modal').classList.remove('active'); }
+
+        async function submitFeedback(id) {
+            try {
+                const rating = window._starRating ? window._starRating.getValue() : 0;
+                if (!rating) { Toast.warning('Please select a rating'); return; }
+                await api.post(`/complaints/${id}/feedback`, { rating, comment: document.getElementById('feedback-comment').value || null });
+                Toast.success('Thank you for your feedback!');
+                closeModal();
+                loadComplaints();
+            } catch (err) { Toast.error(err.message); }
+        }
+
+        async function deleteComplaint(id) {
+            if (!confirm('Are you sure you want to delete this complaint?')) return;
+            try { await api.delete(`/complaints/${id}`); Toast.success('Complaint deleted'); closeModal(); loadComplaints(); }
+            catch (err) { Toast.error(err.message); }
+        }
+
+        async function closeComplaint(id) {
+            try { await api.put(`/complaints/${id}/status`, { status: 'Closed', notes: 'Citizen confirmed resolution.' }); Toast.success('Complaint closed'); closeModal(); loadComplaints(); }
+            catch (err) { Toast.error(err.message); }
+        }
+
+        document.getElementById('detail-modal').addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) closeModal(); });
+    </script>
+</body>
+
+</html>

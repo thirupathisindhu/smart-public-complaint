@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submit Complaint — SmartGov</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <div class="page-wrapper" id="app">
+        <div id="navbar-container"></div>
+        <main class="main-content">
+            <div class="container" style="max-width:720px;">
+                <div class="page-header">
+                    <h1>📝 Submit New Complaint</h1>
+                    <p>Provide details about your civic issue and we'll route it to the right department</p>
+                </div>
+                <div class="card">
+                    <form id="complaint-form" onsubmit="handleSubmit(event)">
+                        <div class="form-group">
+                            <label class="form-label" for="title">Complaint Title *</label>
+                            <input type="text" class="form-control" id="title" placeholder="Brief summary of your issue"
+                                required minlength="5" maxlength="200">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="category">Category *</label>
+                                <select class="form-control" id="category" required onchange="autoSetDepartment()">
+                                    <option value="">Select Category</option>
+                                    <option value="Water">💧 Water</option>
+                                    <option value="Electricity">⚡ Electricity</option>
+                                    <option value="Sanitation">🗑️ Sanitation</option>
+                                    <option value="Infrastructure">🏗️ Infrastructure</option>
+                                    <option value="Other">📋 Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="department">Department *</label>
+                                <select class="form-control" id="department" required>
+                                    <option value="">Select Department</option>
+                                    <option value="Water Supply">Water Supply</option>
+                                    <option value="Electricity">Electricity</option>
+                                    <option value="Sanitation">Sanitation</option>
+                                    <option value="Infrastructure">Infrastructure</option>
+                                    <option value="Administration">Administration</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="description">Description *</label>
+                            <textarea class="form-control" id="description" rows="5"
+                                placeholder="Provide a detailed description of the issue including when it started, how many people are affected, etc."
+                                required minlength="10"></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="location">Location</label>
+                                <input type="text" class="form-control" id="location" placeholder="Street, Area, City">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" for="priority">Priority</label>
+                                <select class="form-control" id="priority">
+                                    <option value="Low">🟢 Low</option>
+                                    <option value="Medium" selected>🟡 Medium</option>
+                                    <option value="High">🟠 High</option>
+                                    <option value="Critical">🔴 Critical</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:12px; margin-top:8px;">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submit-btn" style="flex:1;">🚀
+                                Submit Complaint</button>
+                            <a href="/citizen/dashboard.html" class="btn btn-ghost btn-lg">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/app.js"></script>
+    <script>
+        const user = Auth.requireAuth(['citizen']);
+        if (user) {
+            document.getElementById('navbar-container').innerHTML = buildNavbar(user);
+            initNotifications();
+        }
+
+        const catToDept = { Water: 'Water Supply', Electricity: 'Electricity', Sanitation: 'Sanitation', Infrastructure: 'Infrastructure', Other: 'Administration' };
+        function autoSetDepartment() {
+            const cat = document.getElementById('category').value;
+            if (catToDept[cat]) document.getElementById('department').value = catToDept[cat];
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+            try {
+                const data = await api.post('/complaints', {
+                    title: document.getElementById('title').value,
+                    description: document.getElementById('description').value,
+                    category: document.getElementById('category').value,
+                    department: document.getElementById('department').value,
+                    location: document.getElementById('location').value || null,
+                    priority: document.getElementById('priority').value,
+                });
+                Toast.success(`Complaint ${data.complaint_number} submitted successfully!`);
+                setTimeout(() => window.location.href = '/citizen/my-complaints.html', 1200);
+            } catch (err) {
+                Toast.error(err.message);
+                btn.disabled = false;
+                btn.textContent = '🚀 Submit Complaint';
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users — SmartGov Admin</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <div id="navbar-container"></div>
+        <main class="main-content">
+            <div class="container">
+                <div class="page-header">
+                    <h1>👥 User Management</h1>
+                    <p>View and manage all registered users</p>
+                </div>
+                <div class="filter-bar">
+                    <select class="form-control" id="filter-role" onchange="loadUsers()">
+                        <option value="">All Roles</option>
+                        <option value="citizen">Citizens</option>
+                        <option value="staff">Staff</option>
+                        <option value="admin">Admins</option>
+                    </select>
+                </div>
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Role</th>
+                                    <th>Department</th>
+                                    <th>Status</th>
+                                    <th>Joined</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table">
+                                <tr>
+                                    <td colspan="9" style="text-align:center;">
+                                        <div class="spinner"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/app.js"></script>
+    <script>
+        const user = Auth.requireAuth(['admin']);
+        if (user) {
+            document.getElementById('navbar-container').innerHTML = buildNavbar(user);
+            initNotifications();
+            loadUsers();
+        }
+
+        async function loadUsers() {
+            const role = document.getElementById('filter-role').value;
+            let url = '/admin/users';
+            if (role) url += `?role=${role}`;
+            try {
+                const data = await api.get(url);
+                document.getElementById('users-table').innerHTML = data.users.map(u => `
+          <tr>
+            <td>${u.id}</td>
+            <td style="font-weight:600;">${escapeHtml(u.full_name)}</td>
+            <td>${u.email}</td>
+            <td>${u.phone || '—'}</td>
+            <td>${getRoleBadge(u.role)}</td>
+            <td>${u.department || '—'}</td>
+            <td><span class="badge ${u.is_active ? 'badge-resolved' : 'badge-rejected'}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
+            <td>${formatDate(u.created_at)}</td>
+            <td>${u.id !== user.id ? `<button class="btn btn-sm ${u.is_active ? 'btn-warning' : 'btn-success'}" onclick="toggleUser(${u.id})">${u.is_active ? 'Deactivate' : 'Activate'}</button>` : '<span style="color:var(--text-muted)">You</span>'}</td>
+          </tr>
+        `).join('');
+            } catch (err) { Toast.error('Failed to load users'); }
+        }
+
+        async function toggleUser(userId) {
+            try {
+                await api.put(`/admin/users/${userId}/toggle`);
+                Toast.success('User status updated');
+                loadUsers();
+            } catch (err) { Toast.error(err.message); }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile — SmartGov</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <div class="page-wrapper">
+        <div id="navbar-container"></div>
+        <main class="main-content">
+            <div class="container" style="max-width:600px;">
+                <div class="page-header">
+                    <h1>👤 My Profile</h1>
+                </div>
+                <div class="card" id="profile-card">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/app.js"></script>
+    <script>
+        const user = Auth.requireAuth(['citizen']);
+        if (user) {
+            document.getElementById('navbar-container').innerHTML = buildNavbar(user);
+            initNotifications();
+            loadProfile();
+        }
+        async function loadProfile() {
+            try {
+                const u = await api.get('/auth/me');
+                document.getElementById('profile-card').innerHTML = `
+          <div style="text-align:center; margin-bottom:24px;">
+            <div class="user-avatar" style="width:80px; height:80px; font-size:2rem; margin:0 auto 16px;">${u.full_name.split(' ').map(n => n[0]).join('')}</div>
+            <h2 style="font-size:1.3rem;">${escapeHtml(u.full_name)}</h2>
+            <div style="margin-top:4px;">${getRoleBadge(u.role)}</div>
+          </div>
+          <div style="display:grid; gap:16px;">
+            <div style="padding:12px; background:var(--bg-input); border-radius:var(--radius-sm);">
+              <span style="color:var(--text-muted); font-size:0.8rem;">Email</span>
+              <div style="margin-top:4px;">${u.email}</div>
+            </div>
+            <div style="padding:12px; background:var(--bg-input); border-radius:var(--radius-sm);">
+              <span style="color:var(--text-muted); font-size:0.8rem;">Phone</span>
+              <div style="margin-top:4px;">${u.phone || '—'}</div>
+            </div>
+            <div style="padding:12px; background:var(--bg-input); border-radius:var(--radius-sm);">
+              <span style="color:var(--text-muted); font-size:0.8rem;">Member Since</span>
+              <div style="margin-top:4px;">${formatDate(u.created_at)}</div>
+            </div>
+          </div>`;
+            } catch (err) { Toast.error('Failed to load profile'); }
+        }
+    </script>
+</body>
+
+</html>

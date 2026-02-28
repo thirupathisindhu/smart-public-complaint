@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="SmartGov — A digital platform for filing, tracking, and resolving civic complaints in real-time.">
+  <meta name="description"
+    content="SmartGov — A digital platform for filing, tracking, and resolving civic complaints in real-time.">
   <title>SmartGov — Smart Public Complaint & Grievance Redressal</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
+
 <body>
   <div class="page-wrapper">
     <nav class="navbar">
@@ -30,7 +33,8 @@
       <section class="hero">
         <div class="hero-content container">
           <h1>Your Complaints.<br>Heard. Tracked. Resolved.</h1>
-          <p>SmartGov digitizes civic services — bridging the gap between citizens and government. File complaints, track progress in real-time, and get resolutions faster.</p>
+          <p>SmartGov digitizes civic services — bridging the gap between citizens and government. File complaints,
+            track progress in real-time, and get resolutions faster.</p>
           <div class="hero-actions">
             <a href="/register.html" class="btn btn-primary btn-lg">🚀 Get Started</a>
             <a href="/login.html" class="btn btn-secondary btn-lg">🔑 Login</a>
@@ -43,22 +47,22 @@
         <div class="grid-4 stagger">
           <div class="kpi-card accent">
             <div class="kpi-icon">📊</div>
-            <div class="kpi-value">500+</div>
+            <div class="kpi-value" id="stat-resolved">—</div>
             <div class="kpi-label">Complaints Resolved</div>
           </div>
           <div class="kpi-card success">
-            <div class="kpi-icon">⏱️</div>
-            <div class="kpi-value">24h</div>
-            <div class="kpi-label">Avg. Response Time</div>
+            <div class="kpi-icon">📋</div>
+            <div class="kpi-value" id="stat-total">—</div>
+            <div class="kpi-label">Total Complaints</div>
           </div>
           <div class="kpi-card warning">
             <div class="kpi-icon">🏢</div>
-            <div class="kpi-value">5+</div>
+            <div class="kpi-value" id="stat-departments">—</div>
             <div class="kpi-label">Departments Active</div>
           </div>
           <div class="kpi-card info">
             <div class="kpi-icon">👥</div>
-            <div class="kpi-value">1000+</div>
+            <div class="kpi-value" id="stat-citizens">—</div>
             <div class="kpi-label">Citizens Registered</div>
           </div>
         </div>
@@ -68,7 +72,8 @@
       <section id="features" class="container" style="padding: 60px 24px;">
         <div style="text-align:center; margin-bottom:40px;">
           <h2 style="font-size:2rem; font-weight:700; margin-bottom:8px;">Why SmartGov?</h2>
-          <p style="color:var(--text-muted); font-size:1.05rem;">A modern complaint redressal system built for transparency and accountability</p>
+          <p style="color:var(--text-muted); font-size:1.05rem;">A modern complaint redressal system built for
+            transparency and accountability</p>
         </div>
         <div class="features-grid stagger">
           <div class="feature-card">
@@ -124,7 +129,8 @@
           <div class="card" style="text-align:center; padding:32px;">
             <div style="font-size:2.5rem; margin-bottom:16px;">3️⃣</div>
             <h3 style="margin-bottom:8px;">Track Progress</h3>
-            <p style="color:var(--text-secondary); font-size:0.9rem;">Follow real-time status updates on your complaint</p>
+            <p style="color:var(--text-secondary); font-size:0.9rem;">Follow real-time status updates on your complaint
+            </p>
           </div>
           <div class="card" style="text-align:center; padding:32px;">
             <div style="font-size:2.5rem; margin-bottom:16px;">4️⃣</div>
@@ -148,7 +154,8 @@
           <div class="card" style="text-align:center; padding:28px;">
             <div style="font-size:2rem; margin-bottom:12px;">⚡</div>
             <h3>Electricity</h3>
-            <p style="color:var(--text-muted); font-size:0.85rem; margin-top:6px;">Power cuts, faulty wires, street lights</p>
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-top:6px;">Power cuts, faulty wires, street
+              lights</p>
           </div>
           <div class="card" style="text-align:center; padding:28px;">
             <div style="font-size:2rem; margin-bottom:12px;">🗑️</div>
@@ -165,9 +172,11 @@
 
       <!-- CTA -->
       <section class="container" style="padding: 60px 24px 80px; text-align:center;">
-        <div class="card" style="padding:60px 40px; background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15)); border-color: var(--accent);">
+        <div class="card"
+          style="padding:60px 40px; background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.15)); border-color: var(--accent);">
           <h2 style="font-size:1.8rem; font-weight:700; margin-bottom:12px;">Ready to Make Your Voice Heard?</h2>
-          <p style="color:var(--text-secondary); margin-bottom:28px; font-size:1.05rem;">Join thousands of citizens who are making governance accountable.</p>
+          <p style="color:var(--text-secondary); margin-bottom:28px; font-size:1.05rem;">Join citizens who are making
+            governance accountable.</p>
           <a href="/register.html" class="btn btn-primary btn-lg">🏛️ Register Now — It's Free</a>
         </div>
       </section>
@@ -181,13 +190,30 @@
   </div>
 
   <script>
-    // If logged in, redirect to dashboard
+    // If logged in, show dashboard link
     const user = JSON.parse(localStorage.getItem('smartgov_user') || 'null');
     if (user) {
       const nav = document.getElementById('landing-nav');
       const dashMap = { citizen: '/citizen/dashboard.html', staff: '/staff/dashboard.html', admin: '/admin/dashboard.html' };
       nav.innerHTML = `<a href="${dashMap[user.role]}" class="btn btn-primary btn-sm">Go to Dashboard →</a>`;
     }
+
+    // Fetch real stats from the database
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('stat-resolved').textContent = data.resolved;
+        document.getElementById('stat-total').textContent = data.total_complaints;
+        document.getElementById('stat-departments').textContent = data.total_departments;
+        document.getElementById('stat-citizens').textContent = data.total_citizens;
+      })
+      .catch(() => {
+        document.getElementById('stat-resolved').textContent = '0';
+        document.getElementById('stat-total').textContent = '0';
+        document.getElementById('stat-departments').textContent = '0';
+        document.getElementById('stat-citizens').textContent = '0';
+      });
   </script>
 </body>
+
 </html>

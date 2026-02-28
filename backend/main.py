@@ -758,6 +758,27 @@ async def toggle_user_status(user_id: int, user=Depends(get_current_user)):
 
 
 # ══════════════════════════════════════
+# ── PUBLIC STATS (Landing Page) ──
+# ══════════════════════════════════════
+
+@app.get("/api/stats")
+async def get_public_stats():
+    """Public stats for the landing page — no auth required."""
+    db = get_db()
+    total_complaints = db.execute("SELECT COUNT(*) FROM complaints").fetchone()[0]
+    resolved = db.execute("SELECT COUNT(*) FROM complaints WHERE status IN ('Resolved', 'Closed')").fetchone()[0]
+    total_citizens = db.execute("SELECT COUNT(*) FROM users WHERE role = 'citizen'").fetchone()[0]
+    total_departments = db.execute("SELECT COUNT(DISTINCT department) FROM complaints").fetchone()[0]
+    db.close()
+    return {
+        "total_complaints": total_complaints,
+        "resolved": resolved,
+        "total_citizens": total_citizens,
+        "total_departments": total_departments
+    }
+
+
+# ══════════════════════════════════════
 # ── Startup ──
 # ══════════════════════════════════════
 
